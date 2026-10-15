@@ -14,9 +14,9 @@ sigma = 5;
 t1 = (- N1 / 2 : N1 / 2 - 1) * dt;
 f1 = (- N1 / 2 : N1 / 2 - 1) / (N1 * dt);
 
-x = -15 : 1 : 15;
+x = -20 : 1 : 20;
 
-t2 = (- N2 / 2 : N2 / 2 - 1) * dt;
+t2 = (-N2 / 2 : N2 / 2 - 1) * dt;
 f2 = (- N2 / 2 : N2 / 2 - 1) / (N2 * dt);
 
 %y
@@ -37,6 +37,7 @@ figure;
 subplot(4, 2, 1);
 plot(t1, y1);
 grid on;
+xlim([min(t1), max(t1)]);
 xlabel("t");
 ylabel("y1");
 title("Random Numbers of Gauss Distrbution(N = " + N1 + ")");
@@ -44,13 +45,14 @@ title("Random Numbers of Gauss Distrbution(N = " + N1 + ")");
 subplot(4, 2, 2);
 plot(t2, y2);
 grid on;
+xlim([min(t2), max(t2)]);
 xlabel("t");
 ylabel("y2");
 title("Random Numbers of Gauss Distrbution(N = " + N2 + ")");
 
 subplot(4, 2, 3);
 hold on;
-histogram(y1, length(x) - 1, 'Normalization', 'pdf');
+histogram(y1, x, 'Normalization', 'pdf');
 xticks(x);
 xticklabels(x);
 plot(x, g);
@@ -61,7 +63,7 @@ title("Histogram of y1");
 
 subplot(4, 2, 4);
 hold on;
-histogram(y2, length(x) - 1, 'Normalization', 'pdf');
+histogram(y2, x, 'Normalization', 'pdf');
 xticks(x);
 xticklabels(x);
 plot(x, g);
@@ -87,13 +89,15 @@ title("FFT of y1");
 subplot(4, 2, 7);
 plot(lags1, r1);
 grid on;
+xlim([min(lags1), max(lags1)]);
 xlabel("f");
-ylabel("|Y2(w)|");
+ylabel("|Y1(w)|");
 title("Autocorrelation of y1");
 
 subplot(4, 2, 8);
 plot(lags2, r2);
 grid on;
+xlim([min(lags2), max(lags2)]);
 xlabel("f");
 ylabel("|Y2(w)|");
 title("Autocorrelation of y2");

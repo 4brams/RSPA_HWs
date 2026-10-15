@@ -59,9 +59,9 @@ y1 = f1(t, T, A);
 y2 = f2(t, T, A);
 y3 = f3(t, T, A);
 
-Y1 = abs(fftshift(fft(y1 - mean(y1), N))) / N;
-Y2 = abs(fftshift(fft(y2 - mean(y2), N))) / N;
-Y3 = abs(fftshift(fft(y3 - mean(y3), N))) / N;
+Y1 = abs(fftshift(fft(y1, N))) / N;
+Y2 = abs(fftshift(fft(y2, N))) / N;
+Y3 = abs(fftshift(fft(y3, N))) / N;
 
 %plot
 figure;

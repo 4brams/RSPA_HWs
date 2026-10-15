@@ -1,5 +1,12 @@
+function H = compute_H(h, N, w, m, dt)
+    H = ones(size(w));
+    for n = -m : m
+        H = H + h(n + m + 1) * cos(2 * pi * f * n * dt);
+    end
+end
+
 function [t, f, sunspotMA, sunspotSpectrum, filterSystemResponse, sunPeriod] = processData(sunspotNum, period, point, delta_t)
-    N = length(sunspotNum);
+    N = 2^11;
     margin = floor(point / 2);
 
     t = period((margin + 1) : (end - margin));
@@ -11,9 +18,9 @@ function [t, f, sunspotMA, sunspotSpectrum, filterSystemResponse, sunPeriod] = p
     end
 
     sunspotMA = conv(sunspotNum, filter, "valid");
-    sunspotSpectrum = abs(fftshift(fft(sunspotMA - mean(sunspotMA), N)));
-    filterSystemResponse = abs(fftshift(fft(filter, N)));
+    sunspotSpectrum = fftshift(fft(sunspotMA - mean(sunspotMA), N)) / N;
+    filterSystemResponse = compute_H(f, point+1, delta_t);
 
-    [val, idx] = max(sunspotSpectrum);
+    [val, idx] = max(abs(sunspotSpectrum));
     sunPeriod = abs((1 / (f(idx))) / 12);
 end
