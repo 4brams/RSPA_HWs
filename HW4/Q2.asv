@@ -1,0 +1,42 @@
+%init
+close all;
+clear all;
+clc;
+
+%load
+load Radar_sea.mat
+
+%val
+gate = 10;
+
+fig1 = figure;
+fig2 = figure;
+
+for channel = 1 : (nch / 2)
+    figure(fig1);
+    subplot(3, 2, channel * 2 - 1)
+    plot(time, I(channel, gate));
+    grid on;
+    title("I, channel #" + channel + ", range" + range(gate) + "(km)");
+    xlabel("time(s)");
+    ylabel("I(t)");
+
+    subplot(3, 2, channel * 2)
+    plot(time, Q);
+    grid on;
+    title("Q, channel #" + channel + ", range" + range(gate) + "(km)");
+    xlabel("time(s)");
+    ylabel("Q(t)");
+
+    figure(fig2);
+    subplot(3, 1, channel)
+    scatter(I, Q);
+    grid on;
+    title("IQ Scatter Plot, channel #" + channel + ", range" + range(gate) + "(km)");
+    xlabel("I");
+    ylabel("Q");
+end
+
+%save
+saveas(fig1, "Q2_1.png");
+saveas(fig2, "Q2_2.png");
