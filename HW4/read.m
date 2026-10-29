@@ -4,7 +4,7 @@ clear all;
 clc;
 
 %config
-FILE_ROUTE = "./data/raw.chungli52.66a22d00";
+FILE_ROUTE = "./data/raw.chungli52.66a1bb88";
 
 %read
 infile = FILE_ROUTE;
