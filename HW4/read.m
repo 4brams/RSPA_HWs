@@ -8,8 +8,6 @@ FILE_ROUTE = "./data/raw.chungli52.66a1bb88";
 
 %read
 infile = FILE_ROUTE;
-%outfile = "./swa_head.dat";
-%outfile2 = "./sea_time.dat";
 ghead_52_radar1;
 
 prf = str2num(s19(5 : end));
@@ -39,4 +37,6 @@ for channel = 1 : (nch / 2)
     end
 end
 
-save Radar_sea I Q T R nch nrg1 ntrial range t_res ipp cint;
+IQ = I + 1i * Q;
+
+save Radar_sea IQ I Q T R nch nrg1 ntrial range t_res ipp cint year_date_time;

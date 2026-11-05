@@ -4,17 +4,18 @@ clear all;
 clc;
 
 %function
-function [IQ_ci, t_ci] = coherent_integration(IQ, T, point, time_length, range_length, channel_num)
-    time_length = floor(time_length / point);
-
-    IQ_ci = zeros(channel_num, range_length, time_length);
-    t_ci = zeros(1, time_length);
-
-    for i = 1:time_length
-        idx = (i - 1) * point + 1 : i * point;
-        t_ci(i) = T(idx(end));
-        IQ_ci(:, :, i) = sum(IQ(:, :, idx), 3) / point;
+function IQ_ci = coherent_integration(IQ, point, time_length, range_length, fc, ts)
+    IQ_ci = zeros(range_length, time_length - point);
+    
+    for r = 1 : range_length
+        for n = 1 : time_length - point
+            for k = 0 : point - 1
+                IQ_ci(r, n) = IQ_ci(r, n) + (IQ(r, n + k) * cos(2 * pi * fc * k * ts));
+            end
+        end
     end
+
+    IQ_ci = IQ_ci / point;
 end
 
 %config
@@ -31,19 +32,20 @@ IQ = I + 1i * Q;
 fig1 = figure;
 
 for channel = 1 : (nch / 2)
-    RTI = 10 * log10(abs(squeeze(IQ(channel, :, :))) .^ 2);
+    RTI = 20 * log10(squeeze(IQ(channel, :, :)));
 
     subplot(2, 2, channel)
-    imagesc(T, R, RTI);
+    imagesc(T, R, abs(RTI));
     axis xy;
     c = colorbar;
     title(c, "dB");
     colormap("jet");
-    shading flat;
-    title("Raw RTI, Channel:" + channel);
+    title("RTI, Channel:" + channel);
     xlabel("Time(s)");
     ylabel("Range(km)");
 end
+
+sgtitle("Raw RTI of 3 Channels, Date: " + year_date_time);
 saveas(fig1, "Q1_1.png");
 
 %ma
@@ -51,20 +53,22 @@ fig2 = figure;
 channel = 1;
 
 for i = 1:length(MA_points)
-    IQ_ma = movmean(abs(IQ), MA_points(i), 3);
-    RTI = 10 * log10(squeeze(IQ_ma(channel, :, :)) .^ 2);
+    IQ_ma = movmean(IQ, MA_points(i), 3);
+    RTI = 20 * log10(squeeze(IQ_ma(channel, :, :)));
 
     subplot(2, 2, i);
-    imagesc(T, R,  RTI);
+    imagesc(T, R,  abs(RTI));
     axis xy;
     c = colorbar;
     title(c, "dB");
     colormap("jet");
     shading flat;
-    title("RTI, " + MA_points(i) + "-points MA ,Channel:" + channel);
+    title("RTI, " + MA_points(i) + "-MA");
     xlabel("Time(s)");
     ylabel("Range(km)");
 end
+
+sgtitle("RTI Moving Average, Channels: " + channel + ", Date: " + year_date_time);
 saveas(fig2, "Q1_2.png");
 
 % Coherent Integration
@@ -72,33 +76,38 @@ fig3 = figure;
 channel = 1;
 
 for i = 1 : length(CI_points)
-    [IQ_ci, T_ci] = coherent_integration(IQ, T, CI_points(i), ntrial, nrg1 - 1, nch / 2);
-    RTI = 10 * log10(abs(squeeze(IQ_ci(channel, :, :))) .^ 2);
+    IQ_ci = coherent_integration(squeeze(IQ(channel, :, :)), CI_points(i), ntrial, nrg1 - 1, 52e6, t_res);
+    RTI = 20 * log10(IQ_ci);
 
     subplot(2, 2, i);
-    imagesc(T_ci, R, RTI);
-    axis xy; 
+    imagesc(T(1:end - CI_points(i)), R, abs(RTI));
+    axis xy;
     c = colorbar;
+    %clim([-50 0]);
     title(c, "dB");
     colormap("jet");
-    title("RTI, " + CI_points(i) + "-points CI, Channel:" + channel);
+    title("RTI, " + CI_points(i) + "-CI");
     xlabel("Time(s)");
     ylabel("Range(km)");
 end
+
+sgtitle("RTI Coherent Integration, Channels: " + channel + ", Date: " + year_date_time);
 saveas(fig3, "Q1_3.png");
 
+%overlay
 fig4 = figure;
-[IQ_ma_ci, T_ci] = coherent_integration(IQ_ma, T, 5, ntrial, nrg1 - 1, nch / 2);
-RTI = 10 * log10(abs(squeeze(IQ_ma_ci(channel, :, :))) .^ 2);
-imagesc(T_ci, R, RTI);
+IQ_3 = squeeze(mean(IQ, 1));
+RTI = 20 * log10(IQ_3);
+
+imagesc(T, R, abs(RTI));
 axis xy; 
 c = colorbar;
 title(c, "dB");
 colormap("jet");
-title("RTI, 7-points MA, 7-points CI, Channel:" + channel);
+title("RTI, Channel: 1+2+3");
 xlabel("Time(s)");
 ylabel("Range(km)");
 
 saveas(fig4, "Q1_4.png");
 
-save IQ_ma_ci IQ IQ_ma IQ_ci T_ci IQ_ma_ci;
+save IQs IQ_ma IQ_ci IQ_3;
