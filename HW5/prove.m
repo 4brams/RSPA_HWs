@@ -103,3 +103,5 @@ grid on;
 xlabel("f(Hz)");
 ylabel("|Y_{WRONG}(f)|");
 title("y_{wrong} Spectrum");
+
+saveas(fig1, "prove.png");
