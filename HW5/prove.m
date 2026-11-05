@@ -12,30 +12,27 @@ end
 %config
 A = 1;
 f0 = 50;
-fn = 10;
-r0 = 10;
-vr = 1;
-theta = 0.5 * pi;
-c = 3e8;
+fr = 10;
 
 %val
 f_sampling = 10 * f0;
 dt = 1 / f_sampling;
 t = -0.25 : dt : 0.25 -dt;
+x = 2 * pi * fr * t;
 N = length(t);
 f = (-N / 2 : N / 2 - 1) / N * f_sampling;
 
 %signal
-s = A * cos(2 * pi * f0 * t + 2 * pi * fn * t);%theta - ((4 * pi) / (c / f0)) * (r0 + vr * t)
+y_predict = 2 * sin(x);
+r = A * cos(2 * pi * f0 * t + x);
 os = 2 * sin(2 * pi * f0 * t);
-e = s .* os;
+e = r .* os;
 
 fc = 30;
 lpf = sinc(2.2 * fc * t) / N * f_sampling / 10;
 y_real = conv(e, lpf, "same");
-y_predict = 2 * sin(2 * pi * fn * t);
 
-S = abs(fftshift(fft(s))) / N;
+R = abs(fftshift(fft(r))) / N;
 OS = abs(fftshift(fft(os))) / N;
 E = abs(fftshift(fft(e))) / N;
 LPF = abs(fftshift(fft(lpf))) / N;
@@ -46,14 +43,14 @@ Y_PREDICT = abs(fftshift(fft(y_real))) / N;
 fig1 = figure;
 
 subplot(4, 2, 1);
-plot(t, s);
+plot(t, r);
 grid on;
 xlabel("t(s)");
 ylabel("Amp.(V)");
 title("s(t)");
 
 subplot(4, 2, 2);
-plot(f, S);
+plot(f, R);
 grid on;
 xlabel("f(Hz)");
 ylabel("|S(f)|");

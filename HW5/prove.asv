@@ -26,12 +26,12 @@ N = length(t);
 f = (-N / 2 : N / 2 - 1) / N * f_sampling;
 
 %signal
-s = A * cos(2 * pi * f0 * t + 2 * pi * fn * t);%theta - ((4 * pi) / (c / f0)) * (r0 + vr * t)
+ = A * cos(2 * pi * f0 * t + 2 * pi * fn * t);%theta - ((4 * pi) / (c / f0)) * (r0 + vr * t)
 os = 2 * sin(2 * pi * f0 * t);
 e = s .* os;
 
 fc = 30;
-lpf = sinc(2 * fc / fs * t) * 2*;
+lpf = sinc(2.2 * fc * t) / N * f_sampling / 10;
 y_real = conv(e, lpf, "same");
 y_predict = 2 * sin(2 * pi * fn * t);
 

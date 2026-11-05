@@ -3,52 +3,45 @@ close all;
 clear all;
 clc;
 
-%function
-function y = RMSE(x, g, N)
-    y = 0;
-    for i = 1 : N
-        y = y + ((x(i) - g(i)) ^ 2);
-    end
-    
-    y = y / N;
-    y = y ^ (1 / 2);
-end
-
 %config
 C = 1000;
 N = floor(C ^ (1 / 2));
-sigma = 5;
-mu = 0;
 
 %even distribution
+even_dis = rand(1, C);
+mu = mean(even_dis);
+sigma = std(even_dis);
+
 fig1 = figure;
 hold on;
-even_dis = mu + sigma * rand(1, C); 
-h = histogram(even_dis, N);
+h = histogram(even_dis, N, 'Normalization', 'pdf');
 filter = [1/2, 1/2];
 x = conv(h.BinEdges, filter, "valid");
-e = ones(1, length(x)) * (C / N);
+e = ones(1, length(x));
 plot(x, e);
 hold off;
 grid on;
 xlabel("Number");
-ylabel("Quantity");
-title("Even Distrbution, RMSE = ", RMSE(h.Values, e, N));
+ylabel("Probability Density");
+sgtitle("Even Distrbution, \mu = " + mu + ", \sigma = " + sigma + ", RMSE = " + rmse(h.Values, e));
 
 %gauss distribution
+gauss_dis = randn(1, C);
+mu = mean(gauss_dis);
+sigma = std(gauss_dis);
+
 fig2 = figure;
 hold on;
-gauss_dis = mu + sigma * randn(1, C);
-h = histogram(gauss_dis, N);
+h = histogram(gauss_dis, N, 'Normalization', 'pdf');
 filter = [1/2, 1/2];
 x = conv(h.BinEdges, filter, "valid");
-g = (C / (sigma * ((2 * pi) ^ (1 / 2)))) * exp(-((x - mu) .^ 2)/(2 * (sigma ^ 2)));
+g = (1 / (sigma * ((2 * pi) ^ (1 / 2)))) * exp(-((x - mu) .^ 2)/(2 * (sigma ^ 2)));
 plot(x, g);
 hold off;
 grid on;
 xlabel("Number");
-ylabel("Quantity");
-title("Gauss Distrbution, RMSE = ", RMSE(h.Values, g, N));
+ylabel("Probability Density");
+sgtitle("Gauss Distrbution, \mu = " + mu + ", \sigma = " + sigma + ", RMSE = " + rmse(h.Values, g));
 
 %save
 saveas(fig1, "even_distrbution.png");
