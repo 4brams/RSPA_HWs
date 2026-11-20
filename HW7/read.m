@@ -5,12 +5,13 @@ clc;
 
 %config
 channel = 1;
-FILE_ROUTES = ...
-["./data/raw.chungli52.66a14a10",...
-"./data/raw.chungli52.66a15f56",...
-"./data/raw.chungli52.66a1583f",...
-"./data/raw.chungli52.66a1666e",...
-"./data/raw.chungli52.66a15127"];
+FILE_ROUTES = [
+    "./data/raw.chungli52.66a14a10", ... % 18:38
+    "./data/raw.chungli52.66a15127", ... % 19:08
+    "./data/raw.chungli52.66a1583f", ... % 19:38
+    "./data/raw.chungli52.66a15f56", ... % 20:08
+    "./data/raw.chungli52.66a1666e"  ... % 20:39
+];
 
 %val
 infile = FILE_ROUTES(1);
