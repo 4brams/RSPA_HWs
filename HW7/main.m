@@ -6,7 +6,11 @@ clc;
 %func
 function P_noise = noise(s, r, dim)
     s = sort(s, dim, "ascend");
-    P_noise = s(:, :, floor(r * length(s(1, 1, :))));
+    P_noise = mean(s(:, :, 1 : floor(r * length(s(1, 1, :)))), 3);
+end
+
+function p = mean_power(Sxx)
+    p = sum(Sxx, 3) / length(Sxx(1, 1, :));
 end
 
 function v = mean_doppler_velocity(Sxx, P_noise, V)
@@ -45,6 +49,12 @@ file_num = IQ_size(1);
 CI_times = floor(ntrial / NFFT);
 F = (-NFFT / 2 : NFFT / 2 - 1) / NFFT / t_res;
 V = -(c * F) / (2 * f_radar);
+dv = V(2) - V(1);
+
+V_a_idxs = V < 3 & V > -3;
+V_r_idxs = V < -3 & V > -15;
+N_a = sum(V_a_idxs);   % number of velocity bins in atmospheric window
+N_r = sum(V_r_idxs);   % number of velocity bins in rain window
 
 %fft
 IQ_FFT = fftshift(fft(IQ, NFFT, 3), 3) / NFFT;
@@ -53,7 +63,8 @@ IQ_FFT(:, :, NFFT / 2 + 1) = (IQ_FFT(:, :, NFFT / 2 + 2) + IQ_FFT(:, :, NFFT / 2
 %ci
 IQ_FFT_CI = zeros(file_num, nrg1 - 1, NFFT);
 for time = 1 : CI_times
-    IQ_FFT_CI = IQ_FFT_CI + fftshift(fft(IQ(:, :, (time - 1) * NFFT + 1 : time * NFFT), NFFT, 3), 3) / NFFT;
+    S = fftshift(fft(IQ(:, :, (time - 1) * NFFT + 1 : time * NFFT), NFFT, 3), 3) / NFFT;
+    IQ_FFT_CI = IQ_FFT_CI + abs(S) .^ 2;
 end
 IQ_FFT_CI(:, :, NFFT / 2 + 1) = (IQ_FFT_CI(:, :, NFFT / 2 + 2) + IQ_FFT_CI(:, :, NFFT / 2)) / 2;
 IQ_FFT_CI = IQ_FFT_CI / CI_times;
@@ -76,17 +87,31 @@ P_noise_corr = P_noise_corr / length(V);
 P_signal_corr = P_signal_corr / length(V);
 lag = lag * t_res;
 
-%gauss
-Sxx = IQ_FFT_CI .* conj(IQ_FFT_CI);
-P_noise_gauss = noise(Sxx, 0.35, 3);
-P_gauss = sum(Sxx, 3) / length(V);
-P_signal_gauss = P_gauss - P_noise_gauss;
-mu = mean_doppler_velocity(Sxx, P_noise_gauss, V);
-sigma = mean_spectral_width(Sxx, P_noise_gauss, V, mu);
+%total
+% IQ_FFT_CI already stores averaged power spectra (NCI), no need to square again
+Sxx = IQ_FFT_CI;
+P_noise = noise(Sxx, 0.3, 3);
+P = mean_power(Sxx);
+P_signal = P - P_noise;
+SNR = P_signal ./ P_noise;
+v = mean_doppler_velocity(Sxx, P_noise, V);
+w = mean_spectral_width(Sxx, P_noise, V, v);
+
+%atm
+P_a = mean_power(Sxx(:, :, V_a_idxs));
+P_signal_a = P_a - P_noise;
+SNR_a = P_signal_a ./ P_noise;
+va = mean_doppler_velocity(Sxx(:, :, V_a_idxs), P_noise, V(V_a_idxs));
+wa = mean_spectral_width(Sxx(:, :, V_a_idxs), P_noise, V(V_a_idxs), va);
+
+%rain
+P_r = mean_power(Sxx(:, :, V_r_idxs));
+P_signal_r = P_r - P_noise;
+SNR_r = P_signal_r ./ P_noise;
+vr = mean_doppler_velocity(Sxx(:, :, V_r_idxs), P_noise, V(V_r_idxs));
+wr = mean_spectral_width(Sxx(:, :, V_r_idxs), P_noise, V(V_r_idxs), vr);
 
 %terminal speed
-va = mean_doppler_velocity(Sxx(:, 1 : max(range_idxs), V < 3 & V > -3), P_noise_gauss(:, 1 : max(range_idxs)), V(V < 3 & V > -3));
-vr = mean_doppler_velocity(Sxx(:, 1 : max(range_idxs), V < -3 & V > -15), P_noise_gauss(:, 1 : max(range_idxs)), V(V < -3 & V > -15));
 vt = vr - va;
 
 %plot
@@ -122,7 +147,7 @@ for file_idx = 1 : file_num
     ylabel("Range (km)");
     title("Time: " + start_time(file_idx));
 end
-sgtitle(sprintf("RDI\nNFFT: %d , CI: %d", NFFT, CI_times));
+sgtitle(sprintf("RDI\nNFFT: %d , NCI: %d", NFFT, CI_times));
 saveas(gcf, "RDI_CI.png");
 
 figure;
@@ -157,7 +182,7 @@ for r = 1 : length(range_idxs)
         title(sprintf("Time: %s,\nRange: %.2f km", start_time(file_idx), R(range_idxs(r))));
     end
 end
-sgtitle(sprintf("Autocorrelation\nNFFT: %d , CI: %d", NFFT, CI_times));
+sgtitle(sprintf("Autocorrelation\nNFFT: %d , NCI: %d", NFFT, CI_times));
 saveas(gcf, "Autocorrelation.png");
 
 figure;
@@ -167,7 +192,7 @@ for file_idx = 1 : file_num
     plot(10 * log10(P_corr(file_idx, :)), R);
     plot(10 * log10(P_signal_corr(file_idx, :)), R);
     plot(10 * log10(P_noise_corr(file_idx, :)), R);
-    plot(10 * log10(P_signal_corr(file_idx, :) ./ P_noise_corr(file_idx, :)), R);
+    plot(10 * log10(SNR(file_idx, :)), R);
     hold off;
     grid on;
     legend(["Total", "Signal", "Noise", "SNR"]);
@@ -175,17 +200,17 @@ for file_idx = 1 : file_num
     ylabel("Range (km)");
     title("Time: " + start_time(file_idx));
 end
-sgtitle(sprintf("Power(Estimated by Autocorrelation Function)\nNFFT: %d , CI: %d", NFFT, CI_times));
+sgtitle(sprintf("Power(Estimated by Autocorrelation Function)\nNFFT: %d , NCI: %d", NFFT, CI_times));
 saveas(gcf, "Power(Auto).png");
 
 figure;
 for file_idx = 1 : file_num
     subplot(2, 3, file_idx);
     hold on;
-    plot(10 * log10(P_gauss(file_idx, :)), R);
-    plot(10 * log10(P_signal_gauss(file_idx, :)), R);
-    plot(10 * log10(P_noise_gauss(file_idx, :)), R);
-    plot(10 * log10(P_signal_gauss(file_idx, :) ./ P_noise_gauss(file_idx, :)), R);
+    plot(10 * log10(P(file_idx, :)), R);
+    plot(10 * log10(P_signal(file_idx, :)), R);
+    plot(10 * log10(P_noise(file_idx, :)), R);
+    plot(10 * log10(SNR(file_idx, :)), R);
     hold off;
     grid on;
     legend(["Total", "Signal", "Noise", "SNR"]);
@@ -193,8 +218,44 @@ for file_idx = 1 : file_num
     ylabel("Range (km)");
     title("Time: " + start_time(file_idx));
 end
-sgtitle(sprintf("Power(Estimated by Moment Method)\nNFFT: %d , CI: %d", NFFT, CI_times));
+sgtitle(sprintf("Power(Estimated by Moment Method)\nNFFT: %d , NCI: %d", NFFT, CI_times));
 saveas(gcf, "Power(Moment).png");
+
+figure;
+for file_idx = 1 : file_num
+    subplot(2, 3, file_idx);
+    hold on;
+    plot(10 * log10(P_a(file_idx, :)), R);
+    plot(10 * log10(P_signal_a(file_idx, :)), R);
+    plot(10 * log10(P_noise(file_idx, :)), R);
+    plot(10 * log10(SNR_a(file_idx, :)), R);
+    hold off;
+    grid on;
+    legend(["Total", "Signal", "Noise", "SNR"]);
+    xlabel("Power (db)");
+    ylabel("Range (km)");
+    title("Time: " + start_time(file_idx));
+end
+sgtitle(sprintf("ATM Power(Estimated by Moment Method)\nNFFT: %d , NCI: %d", NFFT, CI_times));
+saveas(gcf, "Power_a(Moment).png");
+
+figure;
+for file_idx = 1 : file_num
+    subplot(2, 3, file_idx);
+    hold on;
+    plot(10 * log10(P_r(file_idx, :)), R);
+    plot(10 * log10(P_signal_r(file_idx, :)), R);
+    plot(10 * log10(P_noise(file_idx, :)), R);
+    plot(10 * log10(SNR_r(file_idx, :)), R);
+    hold off;
+    grid on;
+    legend(["Total", "Signal", "Noise", "SNR"]);
+    xlabel("Power (db)");
+    ylabel("Range (km)");
+    title("Time: " + start_time(file_idx));
+end
+sgtitle(sprintf("Rain Power(Estimated by Moment Method)\nNFFT: %d , NCI: %d", NFFT, CI_times));
+saveas(gcf, "Power_r(Moment).png");
 
 figure;
 for file_idx = 1 : file_num
@@ -202,7 +263,7 @@ for file_idx = 1 : file_num
     D = abs(squeeze(IQ_FFT_CI(file_idx, :, :)));
     hold on;
     h = pcolor(V, R, D);
-    plot(mu(file_idx, :), R, "w", "LineWidth", 1.5);
+    plot(v(file_idx, :), R, "w", "LineWidth", 1.5);
     hold off;
     grid on;
     set(h,'EdgeColor', 'none');
@@ -217,19 +278,19 @@ for file_idx = 1 : file_num
     ylabel("Range (km)");
     title("Time: " + start_time(file_idx));
 end
-sgtitle(sprintf("Mean Dopplor Speed\nNFFT: %d , CI: %d", NFFT, CI_times));
-saveas(gcf, "Mean_Dopplor_Speed.png");
+sgtitle(sprintf("Mean Doppler Speed\nNFFT: %d , NCI: %d", NFFT, CI_times));
+saveas(gcf, "Mean_Doppler_Speed.png");
 
 figure;
 for file_idx = 1 : file_num
     subplot(2, 3, file_idx);
-    plot(sqrt(sigma(file_idx, :)), R);
+    plot(w(file_idx, :), R);
     grid on;
-    xlabel("Frequency (Hz)");
+    xlabel("Velocity (m/s)");
     ylabel("Range (km)");
     title("Time: " + start_time(file_idx));
 end
-sgtitle(sprintf("Spectral Width\nNFFT: %d , CI: %d", NFFT, CI_times));
+sgtitle(sprintf("Spectral Width\nNFFT: %d , NCI: %d", NFFT, CI_times));
 saveas(gcf, "Spectral_Width.png");
 
 figure;
@@ -238,9 +299,9 @@ for file_idx = 1 : file_num
     D = abs(squeeze(IQ_FFT_CI(file_idx, :, :)));
     hold on;
     h = pcolor(V, R, D);
-    plot(va(file_idx, :), R(1 : max(range_idxs)), "b", "LineWidth", 2);
-    plot(vr(file_idx, :), R(1 : max(range_idxs)), "k", "LineWidth", 2);
-    plot(vt(file_idx, :), R(1 : max(range_idxs)), "y", "LineWidth", 2);
+    plot(va(file_idx, :), R, "b", "LineWidth", 2);
+    plot(vr(file_idx, :), R, "k", "LineWidth", 2);
+    plot(vt(file_idx, :), R, "y", "LineWidth", 2);
     hold off;
     grid on;
     set(h,'EdgeColor', 'none');
@@ -256,5 +317,29 @@ for file_idx = 1 : file_num
     ylabel("Range (km)");
     title("Time: " + start_time(file_idx));
 end
-sgtitle(sprintf("Terminal Speed\nNFFT: %d , CI: %d", NFFT, CI_times));
+sgtitle(sprintf("Terminal Speed\nNFFT: %d , NCI: %d", NFFT, CI_times));
 saveas(gcf, "Terminal_Speed.png");
+
+figure;
+i = 0;
+for r = 1 : length(range_idxs)
+    for file_idx = 1 : file_num
+        i = i + 1;
+        subplot(length(range_idxs), file_num, i);
+        D = abs(squeeze(Sxx(file_idx, range_idxs(r), :)));
+        fitted = P_noise(file_idx, range_idxs(r)) * ones(1, NFFT);
+        fitted = fitted + (P_signal_a(file_idx, range_idxs(r)) * N_a * abs(dv) / (sqrt(2 * pi) * wa(file_idx, range_idxs(r)))) * exp(-0.5 * ((V - va(file_idx, range_idxs(r))) / wa(file_idx, range_idxs(r))).^2);
+        fitted = fitted + (P_signal_r(file_idx, range_idxs(r)) * N_r * abs(dv) / (sqrt(2 * pi) * wr(file_idx, range_idxs(r)))) * exp(-0.5 * ((V - vr(file_idx, range_idxs(r))) / wr(file_idx, range_idxs(r))).^2);
+        hold on;
+        plot(V, D);
+        plot(V, fitted);
+        hold off;
+        grid on;
+        legend(["P.S.", "G.F."]);
+        xlabel("Velocity (m/s)");
+        ylabel("Intensity");
+        title(sprintf("Time: %s,\nRange: %.2f km", start_time(file_idx), R(range_idxs(r))));
+    end
+end
+sgtitle(sprintf("Gaussian Fit\nNFFT: %d, NCI: %d", NFFT, CI_times));
+saveas(gcf, "GaussianFit.png");
